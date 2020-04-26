@@ -101,17 +101,22 @@ type PromOpts struct {
 	ExcludeRegexEndpoint string
 	ExcludeRegexMethod   string
 }
+type PromOptsReg struct {
+	ExcludeRegexStatus   *regexp.Regexp
+	ExcludeRegexEndpoint *regexp.Regexp
+	ExcludeRegexMethod   *regexp.Regexp
+}
 
 var defaultPromOpts = &PromOpts{}
 
 // checkLabel returns the match result of labels.
 // Return true if regex-pattern compiles failed.
-func (po *PromOpts) checkLabel(label, pattern string) bool {
-	if pattern == "" {
+func (po *PromOptsReg) checkLabel(label, pattern *regexp.Regexp) bool {
+	if pattern == nil {
 		return true
 	}
 
-	matched, err := regexp.MatchString(pattern, label)
+	matched, err := pattern.MatchString(label)
 	if err != nil {
 		return true
 	}
@@ -121,8 +126,17 @@ func (po *PromOpts) checkLabel(label, pattern string) bool {
 // PromMiddleware returns a gin.HandlerFunc for exporting some Web metrics
 func PromMiddleware(promOpts *PromOpts) gin.HandlerFunc {
 	// make sure promOpts is not nil
-	if promOpts == nil {
-		promOpts = defaultPromOpts
+	promRegs := &PromOptsReg{}
+	if promOpts != nil {
+		if promOpts.ExcludeRegexEndpoint != "" {
+			promRegs.ExcludeRegexStatus = regexp.MustCompile(promOpts.ExcludeRegexStatus)
+		}
+		if promOpts.ExcludeRegexMethod != "" {
+			promRegs.ExcludeRegexMethod = regexp.MustCompile(promOpts.ExcludeRegexMethod)
+		}
+		if promOpts.ExcludeRegexEndpoint != "" {
+			promRegs.ExcludeRegexEndpoint = regexp.MustCompile(promOpts.ExcludeRegexEndpoint)
+		}
 	}
 
 	return func(c *gin.Context) {
@@ -135,9 +149,9 @@ func PromMiddleware(promOpts *PromOpts) gin.HandlerFunc {
 
 		lvs := []string{status, endpoint, method}
 
-		isOk := promOpts.checkLabel(status, promOpts.ExcludeRegexStatus) &&
-			promOpts.checkLabel(endpoint, promOpts.ExcludeRegexEndpoint) &&
-			promOpts.checkLabel(method, promOpts.ExcludeRegexMethod)
+		isOk := promRegs.checkLabel(status, promRegs.ExcludeRegexStatus) &&
+			promRegs.checkLabel(endpoint, promRegs.ExcludeRegexEndpoint) &&
+			promRegs.checkLabel(method, promRegs.ExcludeRegexMethod)
 
 		if !isOk {
 			return

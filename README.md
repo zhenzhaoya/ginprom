@@ -6,7 +6,7 @@
 ### 🔰 Installation
 
 ```shell
-$ go get -u github.com/chenjiandongx/ginprom
+$ go run ginprom/example/server
 ```
 
 ### 📝 Usage
